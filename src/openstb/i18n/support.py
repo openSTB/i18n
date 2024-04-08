@@ -92,7 +92,8 @@ class _DomainTranslations:
                 _logger.debug("%s.set_languages: C", self.domain)
                 translation = _gettext.NullTranslations()
             else:
-                _logger.debug("%s.set_languages: C", self.domain, catalog_path.name)
+                localespec = catalog_path.parent.parent.name
+                _logger.debug("%s.set_languages: %s", self.domain, localespec)
                 with catalog_path.open("rb") as catalog:
                     translation = _gettext.GNUTranslations(catalog)
 
