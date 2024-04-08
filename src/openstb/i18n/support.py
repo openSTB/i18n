@@ -228,7 +228,9 @@ def set_languages(*languages: str):
         translation.set_languages()
 
 
-def domain_translator(domain: str, plural: bool, context: bool = False) -> Callable:
+def domain_translator(
+    domain: str, plural: bool = False, context: bool = False
+) -> Callable[..., str]:
     """Get a domain-specific translator function.
 
     There are four possible translators which use the following call signatures based on
