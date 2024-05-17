@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 from typing import Any
+import warnings
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 from hatchling.plugin import hookimpl
@@ -29,12 +30,19 @@ class I18NBuildHooks(BuildHookInterface):
                 )
             mo_fn = f"{domain}.mo"
 
-            # Determine directories for input and compiled catalogs.
+            # Find the directory which contains input catalogs.
             root = Path(self.root)
             translation_dir = root / self.config.get("translation-dir", "translations")
-            locale_dir = root / "src" / "openstb" / "locale"
+            if not translation_dir.exists():
+                warnings.warn(
+                    f"directory for translation catalogs '{translation_dir}' does not "
+                    "exist",
+                    RuntimeWarning,
+                )
+                return
 
-            # Find each available catalog.
+            # Find and compile each available catalog.
+            locale_dir = root / "src" / "openstb" / "locale"
             for fn in translation_dir.iterdir():
                 if not fn.is_file():
                     continue
