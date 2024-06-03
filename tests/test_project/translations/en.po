@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: openSTB contributors
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+
+msgid ""
+msgstr ""
+"Project-Id-Version: openSTB i18n test project\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-06-03 10:57+2100\n"
+"PO-Revision-Date: 2024-06-03 10:57+0200\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ASCII\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+
+msgid "A simple test message"
+msgstr ""
+
+msgid "{count:d} plugin was found"
+msgid_plural "{count:d} plugins were found"
+msgstr[0] ""
+msgstr[1] ""

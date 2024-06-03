@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: openSTB contributors
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+
+# The [project] and [build-system] sections will be dynamically added during the test
+# setup as the path to the plugin under test changes for each test run to avoid pip's
+# caching.
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openstb"]
+
+[tool.hatch.build.targets.wheel.hooks.openstb-i18n]
+domain = "openstb.i18n_test"
