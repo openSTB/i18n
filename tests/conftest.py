@@ -30,6 +30,7 @@ def test_project_venv(tmp_path_factory, unique_src_dir):
     base = Path(__file__).parent.parent.resolve()
     plugin_dir = unique_src_dir / "i18n"
     shutil.copytree(base / "src", plugin_dir / "src")
+    shutil.copytree(base / ".git", plugin_dir / ".git")
     shutil.copy(base / "pyproject.toml", plugin_dir)
 
     # Copy the test project to a unique directory.
