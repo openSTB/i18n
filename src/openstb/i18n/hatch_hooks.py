@@ -11,7 +11,6 @@ import warnings
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 from hatchling.plugin import hookimpl
 
-
 log = logging.getLogger(__name__)
 log_level = logging.getLevelName(os.getenv("HATCH_BUILD_SCRIPTS_LOG_LEVEL", "INFO"))
 log.setLevel(log_level)

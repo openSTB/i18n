@@ -23,7 +23,9 @@ def test_project_venv(tmp_path_factory, unique_src_dir):
     """Virtual environment with the sample project installed."""
     # Create a virtual environment.
     venv_dir = tmp_path_factory.mktemp("venv.i18n_sample_project")
-    subprocess.run([sys.executable, "-m", "venv", "--system-site-packages", "."], cwd=venv_dir)
+    subprocess.run(
+        [sys.executable, "-m", "venv", "--system-site-packages", "."], cwd=venv_dir
+    )
     venv_python = str(venv_dir / "bin" / "python")
 
     # Copy the openstb-i18n source to a unique directory.

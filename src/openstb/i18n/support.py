@@ -6,14 +6,13 @@ from importlib import resources
 from importlib.resources.abc import Traversable
 import logging
 import os
-from typing import Callable, Iterable
-
+from typing import Iterable
 
 _logger = logging.getLogger(__name__)
 
 
-def _find_catalogs(languages: Iterable[str], domain: str) -> list[Traversable | None]:
-    """Internal: find catalogs in the package resources.
+def find_catalogs(locales: Iterable[str], domain: str) -> list[Traversable | None]:
+    """Find translation catalogs.
 
     This will use `gettext._expand_lang` on each value in ``languages`` to get
     acceptable alternatives; for example, "en_NZ.UTF-8" would expand to ["en_NZ.UTF-8",
@@ -42,18 +41,18 @@ def _find_catalogs(languages: Iterable[str], domain: str) -> list[Traversable | 
     mo_fn = f"{domain}.mo"
 
     catalogs: list[Traversable | None] = []
-    for language in languages:
-        _logger.debug("_find_catalogs: language %s", language)
-        for spec in _gettext._expand_lang(language):  # type: ignore[attr-defined]
+    for locale in locales:
+        _logger.debug("find_catalogs: locale %s", locale)
+        for spec in _gettext._expand_lang(locale):  # type: ignore[attr-defined]
             if spec == "C":
-                _logger.debug("_find_catalogs: C locale requested, stop searching")
+                _logger.debug("find_catalogs: locale specification C")
                 catalogs.append(None)
                 break
 
             # Try to find the base message directories for this localespec. This may
             # find multiple options (especially if installed in editable mode) due to
             # our use of namespace packages.
-            _logger.debug("_find_catalogs: locale specification %s", spec)
+            _logger.debug("find_catalogs: locale specification %s", spec)
             try:
                 lc_messages = resources.files(f"openstb.locale.{spec}.LC_MESSAGES")
             except ModuleNotFoundError:
@@ -66,34 +65,50 @@ def _find_catalogs(languages: Iterable[str], domain: str) -> list[Traversable | 
             # is_file() check.
             catalog = lc_messages.joinpath(mo_fn)
             if catalog.is_file():
-                _logger.debug("_find_catalogs: found catalog %s", catalog)
+                _logger.debug("find_catalogs: found catalog %s", catalog)
                 catalogs.append(catalog)
 
     return catalogs
 
 
-# The languages currently in use.
-_languages: list[str] = ["C"]
-
-
-class _DomainTranslations:
-    """Internal: helper to manage translations for a domain."""
+class DomainTranslation:
+    """Translations for a single domain."""
 
     def __init__(self, domain: str):
-        self.domain = domain
-        self.set_languages()
+        """
+        Parameters
+        ----------
+        domain
+            The translation domain, typically the name of the package or program.
 
-    def set_languages(self):
-        """Update the catalogs in use for this domain."""
+        """
+        self.domain = domain
+        self.translations = _gettext.NullTranslations()
+
+    def set_locales(self, *locales: str):
+        """Set the locales to load messages from.
+
+        Parameters
+        ----------
+        locales
+            The locale codes to use in order of priority. These may be simply the
+            desired language code (``en``) or include a specific variant (``de_AT``)
+            and/or encoding (``de_AT.UTF-8``). If no locale codes are given, then
+            environment variables will be used to try to determine the current locale.
+
+        """
+        ll = list(locales)
+        if "C" not in locales:
+            ll.append("C")
+
         is_base = True
-        for catalog_path in _find_catalogs(_languages, self.domain):
+        for catalog_path in find_catalogs(ll, self.domain):
             # Load the catalog.
             if catalog_path is None:
-                _logger.debug("%s.set_languages: C", self.domain)
+                _logger.debug("%s.set_locales: C", self.domain)
                 translation = _gettext.NullTranslations()
             else:
-                localespec = catalog_path.parent.parent.name
-                _logger.debug("%s.set_languages: %s", self.domain, localespec)
+                _logger.debug("%s.set_locales: %s", self.domain, catalog_path)
                 with catalog_path.open("rb") as catalog:
                     translation = _gettext.GNUTranslations(catalog)
 
@@ -109,14 +124,13 @@ class _DomainTranslations:
 
         Parameters
         ----------
-        message : str
+        message
             The unlocalised message.
 
         Returns
         -------
         str
-            The localised version of ``message`` based on the current language and
-            locale settings.
+            The localised version of ``message`` based on the current locale.
 
         """
         return self.translations.gettext(message)
@@ -129,7 +143,7 @@ class _DomainTranslations:
 
         Parameters
         ----------
-        singular, plural : str
+        singular, plural
             The singular and plural forms of the unlocalised message.
         n : int
             The number used to determine the form of the returned message.
@@ -137,8 +151,7 @@ class _DomainTranslations:
         Returns
         -------
         str
-            The localised version of the message based on the current language and
-            locale settings.
+            The localised version of the message based on the current locale.
 
         """
         return self.translations.ngettext(singular, plural, n)
@@ -148,16 +161,15 @@ class _DomainTranslations:
 
         Parameters
         ----------
-        context : str
+        context
             The message context.
-        message : str
+        message
             The unlocalised message.
 
         Returns
         -------
         str
-            The localised version of ``message`` based on the current language and
-            locale settings.
+            The localised version of ``message`` based on the current locale.
 
         """
         return self.translations.pgettext(context, message)
@@ -170,104 +182,75 @@ class _DomainTranslations:
 
         Parameters
         ----------
-        context : str
+        context
             The message context.
-        singular, plural : str
+        singular, plural
             The singular and plural forms of the unlocalised message.
-        n : int
+        n
             The number used to determine the form of the returned message.
 
         Returns
         -------
         str
-            The localised version of the message based on the current language and
-            locale settings.
+            The localised version of the message based on the current locale.
 
         """
         return self.translations.npgettext(context, singular, plural, n)
 
 
-# Track the domains we have loaded so we can update them.
-_domain_translations: dict[str, "_DomainTranslations"] = {}
+class translations:
+    """Translation manager."""
 
+    _translations: dict[str, DomainTranslation] = {}
+    _locales: list[str] = ["C"]
 
-def set_languages(*languages: str):
-    """Set the desired languages.
+    @classmethod
+    def load(cls, domain: str) -> DomainTranslation:
+        """Load the translations for a particular domain.
 
-    Parameters
-    ----------
-    *languages
-        Strings giving the language code for the desired language, optionally with a
-        country code for a specific variant or an encoding specifier, e.g., "en", "de",
-        "de_AT", "de_AT.UTF-8". These are used in the specified order: if a message is
-        not translated by the catalogs for the first language, it will fall back to the
-        catalogs for the second language and so on. If no languages are specified, then
-        attempt to determine the current language of the user and use that if available.
+        Parameters
+        ----------
+        domain
+            The domain to get translations for. This is typically the name of the
+            package or project.
 
-    """
-    global _languages
+        Returns
+        -------
+        DomainTranslation
+            Interface to the translations. This will be set to the locales last given to
+            `set_locales`.
 
-    if languages:
-        _languages = list(languages)
+        """
+        if domain not in cls._translations:
+            cls._translations[domain] = DomainTranslation(domain)
+            cls._translations[domain].set_locales(*cls._locales)
 
-    else:
-        # Try to find settings in common environment variables.
-        _languages.clear()
-        for envname in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
-            if envval := os.environ.get(envname):
-                _logger.debug("set_languages: using env %s=%s", envname, envval)
-                _languages = envval.split(":")
-                break
+        return cls._translations[domain]
 
-    # Always include the no-localisation C locale as a fallback.
-    if "C" not in _languages:
-        _languages.append("C")
+    @classmethod
+    def set_locales(cls, *locales: str):
+        """Set the locale to use for all managed translations.
 
-    # Update any existing domain instances.
-    for translation in _domain_translations.values():
-        translation.set_languages()
+        Parameters
+        ----------
+        *locales
+            The locale codes to use in order of priority. These may be simply the
+            desired language code (``en``) or include a specific variant (``de_AT``)
+            and/or encoding (``de_AT.UTF-8``). If no locale codes are given, then
+            environment variables will be used to try to determine the current locale.
 
+        """
+        ll = list(locales)
 
-def domain_translator(
-    domain: str, plural: bool = False, context: bool = False
-) -> Callable[..., str]:
-    """Get a domain-specific translator function.
+        if not ll:
+            for envname in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
+                envval = os.environ.get(envname)
+                if envval is not None:
+                    _logger.debug(
+                        "translation.set_locales: using env %s=%s", envname, envval
+                    )
+                    ll = envval.split(":")
 
-    There are four possible translators which use the following call signatures based on
-    the boolean parameters:
-
-    plural, context:         f(context, singular, plural, n)
-    not plural, context:     f(context, message)
-    plural, not context:     f(singular, plural, n)
-    not plural, not context: f(message)
-
-    These correspond to the functions `npgettext`, `pgettext`, `ngettext` and `gettext`
-    in the standard `gettext` library, respectively.
-
-    Parameters
-    ----------
-    domain : str
-        The domain to translate.
-    plural : bool
-        If True, get a translator which can handle plural forms. Otherwise, get a
-        translator which handles single messages.
-    context : bool
-        If True, get a context-dependent translator. If False, get a translator without
-        context support.
-
-    Returns
-    -------
-    translator : callable
-
-    """
-    if domain not in _domain_translations:
-        _domain_translations[domain] = _DomainTranslations(domain)
-
-    if context:
-        if plural:
-            return _domain_translations[domain].npgettext
-        return _domain_translations[domain].pgettext
-
-    if plural:
-        return _domain_translations[domain].ngettext
-    return _domain_translations[domain].gettext
+        cls._locales = ll
+        for translation in cls._translations.values():
+            translation.set_locales(*cls._locales)
