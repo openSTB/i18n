@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "openstb-i18n"
 description = "Internationalisation support for openSTB projects"
-version = "1.0.0"
 requires-python = ">=3.11"
+dynamic = ["version"]
 
 [project.entry-points.hatch]
 openstb-i18n = "openstb.i18n.hatch_hooks"
@@ -25,6 +25,9 @@ packages = ["src/openstb"]
 exclude = [
   ".gitignore",
 ]
+
+[tool.hatch.version]
+source = "vcs"
 
 
 #
